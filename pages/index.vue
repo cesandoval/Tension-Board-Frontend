@@ -1,19 +1,10 @@
 <template>
   <div class="index">
-    <div class="title">
-      <!-- <img class="w-40" src="@/assets/img/logo.svg" alt="" /> -->
-      <h1 class="mt-4">Title</h1>
-    </div>
-
-    <div class="intro">
-      <p class="text-sm">This is the start page</p>
-    </div>
-
-    <nuxt-link to="/app">
-      <button class="start animated zoomIn faster">
-        Start
-      </button>
-    </nuxt-link>
+    <img
+      src="/tension-board.png"
+      style="width: auto; height: 98vh;"
+      alt="My Image"
+    />
   </div>
 </template>
 
