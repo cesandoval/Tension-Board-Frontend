@@ -1,0 +1,64 @@
+/* fonts */
+@import url('https://fonts.googleapis.com/css?family=Noto+Sans+TC:100,300,400,700&display=fallback&subset=chinese-traditional');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,700,700i&display=swap&subset=latin-ext');
+
+body {
+  font-family: 'Nunito', Roboto, 'Noto Sans TC', 'Source Sans Pro',
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial,
+    sans-serif;
+  font-size: 16px;
+  word-spacing: 1px;
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  font-weight: 300;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: border-box;
+  margin: 0;
+
+  user-select: none;
+}
+
+body {
+  --color-primary: #2CA79F;
+}
+
+.color-primary {
+  color: var(--color-primary);
+}
+
+.border-color-primary {
+  border-color: var(--color-primary);
+}
+
+
+.bg-color-primary {
+  background-color: var(--color-primary);
+}
+
+.breathing {
+  animation: breathing 7s infinite both;
+}
+
+
+@keyframes breathing {
+  0% {
+    opacity: 0.1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.1;
+  }
+}
+

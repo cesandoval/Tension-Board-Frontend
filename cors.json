@@ -1,0 +1,13 @@
+[
+    {
+        "docs": "https://firebase.google.com/docs/storage/web/download-files#cors_configuration",
+        "deploy": "Run gsutil cors set cors.json gs://<project-id>.appspot.com",
+        "origin": [
+            "*"
+        ],
+        "method": [
+            "GET"
+        ],
+        "maxAgeSeconds": 0
+    }
+]
