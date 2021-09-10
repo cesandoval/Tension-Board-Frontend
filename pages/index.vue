@@ -85,11 +85,21 @@
         />
         <label for="green" style="color:green">&#9632;</label>
       </div>
+      <div>
+        <fa-icon
+          id="light"
+          :icon="['far', 'lightbulb']"
+          size="2x"
+          @click="lightUp"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import axios from 'axios'
+
 export default {
   components: {
     //
@@ -453,9 +463,36 @@ export default {
     },
     addHold(i, key = null) {
       if (key == null) key = i
-      this.colorData[key] = this.color
-      this.colorData = { ...this.colorData }
-      this.selectedHolds[this.LEDIndex[key]] = this.color
+
+      // console.log(key in this.colorData, this.colorData)
+      if (!(key in this.colorData) || this.colorData[key] !== this.color) {
+        this.colorData[key] = this.color
+        this.colorData = { ...this.colorData }
+
+        this.selectedHolds[this.LEDIndex[key]] = this.color
+        this.selectedHolds = { ...this.selectedHolds }
+      } else if (this.colorData[key] === this.color) {
+        delete this.colorData[key]
+        this.colorData = { ...this.colorData }
+
+        delete this.selectedHolds[this.LEDIndex[key]]
+        this.selectedHolds = { ...this.selectedHolds }
+      }
+    },
+    lightUp() {
+      console.log('LITTTT')
+
+      // const article = { title: 'Vue POST Request Example' }
+      axios
+        .get('192.168.1.11/L')
+        .then(response => {
+          this.articleId = response.data.id
+          console.log(response, response.data.id)
+        })
+        .catch(error => {
+          this.errorMessage = error.message
+          console.error('There was an error!', error)
+        })
     },
   },
 }
