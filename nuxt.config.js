@@ -16,6 +16,8 @@ export default {
    ** Headers of the page
    ** See https://nuxtjs.org/api/configuration-head
    */
+  serverMiddleware: ['~/api/tensionAPI.js'],
+  // serverMiddleware: [{ path: '/api', handler: '~/api/tensionAPI.js' }],
   head: {
     title,
     meta: [
