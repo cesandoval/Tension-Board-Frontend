@@ -543,8 +543,12 @@ export default {
       this.selectedHolds = {}
     },
     lightUp() {
+      const climbName =
+        this.climbName === ''
+          ? (Math.random() + 1).toString(36).substring(2)
+          : this.climbName
       const currentRef = ref(storage, 'current/test.json')
-      const allRef = ref(storage, 'all/' + 'name' + '.json')
+      const allRef = ref(storage, 'all/' + climbName + '.json')
 
       const jsonse = JSON.stringify(this.selectedHolds)
       const file = new Blob([jsonse], { type: 'application/json' })
