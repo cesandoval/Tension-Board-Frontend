@@ -1,8 +1,14 @@
 <template>
   <div class="index">
+    <div class="fixed top-0 p-2">
+      <div>
+        <label for="">Name of Climb</label>
+        <input v-model="climbName" type="string" />
+      </div>
+    </div>
     <svg
-      width="100%"
-      height="100%"
+      width="90%"
+      height="90%"
       :style="{
         position: 'absolute',
       }"
@@ -39,7 +45,7 @@
       />
     </svg>
 
-    <div class="fixed left-0 bottom-0 p-4">
+    <!-- <div class="fixed left-0 bottom-0 p-4">
       <div>
         <label for="">xSize</label>
         <input v-model="xSize" type="number" />
@@ -56,7 +62,9 @@
         <label for="">yOffset</label>
         <input v-model="yOffset" type="number" />
       </div>
-      <div>
+    </div> -->
+    <div class="fixed bottom-0 p-2 container-controls">
+      <div class="tension-controls">
         <input
           id="magenta"
           type="radio"
@@ -66,16 +74,6 @@
           @change="color = 'magenta'"
         />
         <label for="magenta" style="color:magenta">&#9632;</label>
-
-        <input
-          id="blue"
-          type="radio"
-          name="color"
-          value="blue"
-          @change="color = 'blue'"
-        />
-        <label for="blue" style="color:blue">&#9632;</label>
-
         <input
           id="green"
           type="radio"
@@ -84,8 +82,40 @@
           @change="color = 'green'"
         />
         <label for="green" style="color:green">&#9632;</label>
+        <input
+          id="blue"
+          type="radio"
+          name="color"
+          value="blue"
+          @change="color = 'blue'"
+        />
+        <label for="blue" style="color:blue">&#9632;</label>
+        <input
+          id="red"
+          type="radio"
+          name="color"
+          value="red"
+          @change="color = 'red'"
+        />
+        <label for="red" style="color:red">&#9632;</label>
       </div>
-      <div>
+      <div class="tension-controls">
+        <fa-icon
+          id="flip"
+          :icon="['fas', 'exchange-alt']"
+          size="2x"
+          @click="flip"
+        />
+      </div>
+      <div class="tension-controls">
+        <fa-icon
+          id="trash"
+          :icon="['far', 'trash-alt']"
+          size="2x"
+          @click="clearAll"
+        />
+      </div>
+      <div class="tension-controls">
         <fa-icon
           id="light"
           :icon="['far', 'lightbulb']"
@@ -98,7 +128,9 @@
 </template>
 
 <script>
-import axios from 'axios'
+import { ref, uploadBytes } from 'firebase/storage'
+
+import { storage } from '@/services/firebase'
 
 export default {
   components: {
@@ -112,6 +144,7 @@ export default {
       ySize: 62.5,
       xOffset: 211,
       yOffset: 31,
+      climbName: '',
       color: 'magenta',
       colorData: {},
       selectedHolds: {},
@@ -479,20 +512,52 @@ export default {
         this.selectedHolds = { ...this.selectedHolds }
       }
     },
-    lightUp() {
-      console.log('LITTTT')
+    flip() {
+      for (const [key, color] of Object.entries(this.colorData)) {
+        delete this.colorData[key]
+        delete this.selectedHolds[this.LEDIndex[key]]
 
-      // const article = { title: 'Vue POST Request Example' }
-      axios
-        .get('192.168.1.11/L')
-        .then(response => {
-          this.articleId = response.data.id
-          console.log(response, response.data.id)
+        if (key.includes(',')) {
+          const newKey = Number.parseFloat(key.split(',')[0]) - 1
+          const newY = key.split(',')[1]
+
+          let mirroredKey =
+            Number.parseFloat(newKey) - (newKey % 11) + (10 - (newKey % 11)) + 1
+          mirroredKey = mirroredKey + ',' + newY
+          this.updateObjects(mirroredKey, color)
+        } else {
+          const mirroredKey = parseInt(key) - (key % 11) + (10 - (key % 11))
+          this.updateObjects(mirroredKey, color)
+        }
+      }
+    },
+    updateObjects(key, color) {
+      this.colorData[key] = color
+      this.colorData = { ...this.colorData }
+
+      this.selectedHolds[this.LEDIndex[key]] = color
+      this.selectedHolds = { ...this.selectedHolds }
+    },
+    clearAll() {
+      this.colorData = {}
+      this.selectedHolds = {}
+    },
+    lightUp() {
+      const currentRef = ref(storage, 'current/test.json')
+      const allRef = ref(storage, 'all/' + 'name' + '.json')
+
+      const jsonse = JSON.stringify(this.selectedHolds)
+      const file = new Blob([jsonse], { type: 'application/json' })
+
+      const d = new Date()
+
+      // 'file' comes from the Blob or File API
+      uploadBytes(currentRef, file).then(snapshot => {
+        console.log('Uploaded a json at:' + d.getTime())
+        uploadBytes(allRef, file).then(snapshot => {
+          console.log('Uploaded a json at:' + d.getTime())
         })
-        .catch(error => {
-          this.errorMessage = error.message
-          console.error('There was an error!', error)
-        })
+      })
     },
   },
 }
@@ -520,6 +585,16 @@ export default {
 .start {
   @apply bg-indigo-400 text-white font-bold py-2 px-6 rounded cursor-pointer my-8;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.container-controls {
+  width: 40%;
+  overflow: hidden; /* contain floated elements */
+}
+
+.tension-controls {
+  float: left;
+  width: 25%;
 }
 
 input {
