@@ -7,21 +7,20 @@
       </div>
     </div>
     <svg
-      width="90%"
-      height="90%"
+      width="100%"
+      height="100%"
       :style="{
         position: 'absolute',
       }"
-      viewBox="0 0 1000 1000"
+      viewBox="0 0 1080 1645"
     >
-      <image x="0" y="0" width="1000" height="1000" href="/tension-board.png" />
-
+      <image x="0" y="0" width="1080" height="1545" href="/tension-board.png" />
       <circle
         v-for="(d, i) in data"
         :key="i"
         :cx="x(i)"
         :cy="y(i)"
-        r="26"
+        r="33"
         :style="{
           stroke: colorData[i],
           'stroke-width': '5px',
@@ -35,7 +34,7 @@
         :key="d[0] + ',' + d[1]"
         :cx="setCX(d)"
         :cy="setCY(d)"
-        r="26"
+        r="33"
         :style="{
           stroke: colorData[d[0] + ',' + d[1]],
           'stroke-width': '5px',
@@ -43,6 +42,39 @@
         }"
         @click="addHold(i, d[0] + ',' + d[1])"
       />
+
+      <text
+        x="270"
+        y="1605"
+        font-size="80"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        @click="clearAll"
+      >
+        🗑️
+      </text>
+
+      <text
+        x="540"
+        y="1605"
+        font-size="80"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        @click="flip"
+      >
+        🔁
+      </text>
+
+      <text
+        x="810"
+        y="1605"
+        font-size="80"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        @click="lightUp"
+      >
+        💡
+      </text>
     </svg>
 
     <!-- <div class="fixed left-0 bottom-0 p-4">
@@ -63,7 +95,7 @@
         <input v-model="yOffset" type="number" />
       </div>
     </div> -->
-    <div class="fixed bottom-0 p-2 container-controls">
+    <!-- <div class="fixed bottom-0 p-2 container-controls">
       <div class="tension-controls">
         <input
           id="magenta"
@@ -98,32 +130,7 @@
           @change="color = 'red'"
         />
         <label for="red" style="color:red">&#9632;</label>
-      </div>
-      <div class="tension-controls">
-        <fa-icon
-          id="flip"
-          :icon="['fas', 'exchange-alt']"
-          size="2x"
-          @click="flip"
-        />
-      </div>
-      <div class="tension-controls">
-        <fa-icon
-          id="trash"
-          :icon="['far', 'trash-alt']"
-          size="2x"
-          @click="clearAll"
-        />
-      </div>
-      <div class="tension-controls">
-        <fa-icon
-          id="light"
-          :icon="['far', 'lightbulb']"
-          size="2x"
-          @click="lightUp"
-        />
-      </div>
-    </div>
+      </div> -->
   </div>
 </template>
 
@@ -140,14 +147,16 @@ export default {
     return {
       ledPos: [],
       data: [...Array(11 * 15).keys()],
-      xSize: 62.5,
-      ySize: 62.5,
-      xOffset: 211,
-      yOffset: 31,
+      xSize: 96.5,
+      ySize: 96.5,
+      xOffset: 95,
+      yOffset: 44,
       climbName: '',
       color: 'magenta',
       colorData: {},
       selectedHolds: {},
+      oldColorData: {},
+      oldSelectedHolds: {},
       setC: [
         [2.5, 0.5],
         [4.5, 0.5],
@@ -498,13 +507,20 @@ export default {
       if (key == null) key = i
 
       // console.log(key in this.colorData, this.colorData)
-      if (!(key in this.colorData) || this.colorData[key] !== this.color) {
+
+      if (!(key in this.colorData)) this.color = 'magenta'
+      else if (this.colorData[key] === 'magenta') this.color = 'green'
+      else if (this.colorData[key] === 'green') this.color = 'blue'
+      else if (this.colorData[key] === 'blue') this.color = 'red'
+      else if (this.colorData[key] === 'red') this.color = 'green'
+
+      if (!(this.colorData[key] === 'red')) {
         this.colorData[key] = this.color
         this.colorData = { ...this.colorData }
 
         this.selectedHolds[this.LEDIndex[key] - 1] = this.color
         this.selectedHolds = { ...this.selectedHolds }
-      } else if (this.colorData[key] === this.color) {
+      } else {
         delete this.colorData[key]
         this.colorData = { ...this.colorData }
 
@@ -512,6 +528,24 @@ export default {
         this.selectedHolds = { ...this.selectedHolds }
       }
     },
+    // addHold(i, key = null) {
+    //   if (key == null) key = i
+
+    //   // console.log(key in this.colorData, this.colorData)
+    //   if (!(key in this.colorData) || this.colorData[key] !== this.color) {
+    //     this.colorData[key] = this.color
+    //     this.colorData = { ...this.colorData }
+
+    //     this.selectedHolds[this.LEDIndex[key] - 1] = this.color
+    //     this.selectedHolds = { ...this.selectedHolds }
+    //   } else if (this.colorData[key] === this.color) {
+    //     delete this.colorData[key]
+    //     this.colorData = { ...this.colorData }
+
+    //     delete this.selectedHolds[this.LEDIndex[key] - 1]
+    //     this.selectedHolds = { ...this.selectedHolds }
+    //   }
+    // },
     flip() {
       for (const [key, color] of Object.entries(this.colorData)) {
         delete this.colorData[key]
@@ -560,8 +594,14 @@ export default {
         console.log('Uploaded a json at:' + d.getTime())
         uploadBytes(allRef, file).then(snapshot => {
           console.log('Uploaded a json to board at:' + d.getTime())
+          this.oldColorData = { ...this.colorData }
+          this.oldSelectedHolds = { ...this.selectedHolds }
         })
       })
+    },
+    undo() {
+      this.colorData = { ...this.oldColorData }
+      this.selectedHolds = { ...this.oldSelectedHolds }
     },
   },
 }
@@ -592,13 +632,13 @@ export default {
 }
 
 .container-controls {
-  width: 40%;
+  width: 50%;
   overflow: hidden; /* contain floated elements */
 }
 
 .tension-controls {
   float: left;
-  width: 25%;
+  width: 20%;
 }
 
 input {
