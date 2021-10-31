@@ -547,10 +547,8 @@ export default {
     //   }
     // },
     flip() {
+      console.log(this.colorData)
       for (const [key, color] of Object.entries(this.colorData)) {
-        delete this.colorData[key]
-        delete this.selectedHolds[this.LEDIndex[key] - 1]
-
         if (key.includes(',')) {
           const newKey = Number.parseFloat(key.split(',')[0]) - 1
           const newY = key.split(',')[1]
@@ -558,11 +556,18 @@ export default {
           let mirroredKey =
             Number.parseFloat(newKey) - (newKey % 11) + (10 - (newKey % 11)) + 1
           mirroredKey = mirroredKey + ',' + newY
-          this.updateObjects(mirroredKey, color)
+          this.checkMirror(key, mirroredKey, color)
         } else {
           const mirroredKey = parseInt(key) - (key % 11) + (10 - (key % 11))
-          this.updateObjects(mirroredKey, color)
+          this.checkMirror(key, mirroredKey, color)
         }
+      }
+    },
+    checkMirror(key, newKey, color) {
+      if (!(newKey in this.colorData)) {
+        delete this.colorData[key]
+        delete this.selectedHolds[this.LEDIndex[key] - 1]
+        this.updateObjects(newKey, color)
       }
     },
     updateObjects(key, color) {
@@ -577,10 +582,11 @@ export default {
       this.selectedHolds = {}
     },
     lightUp() {
-      const climbName =
-        this.climbName === ''
-          ? (Math.random() + 1).toString(36).substring(2)
-          : this.climbName
+      // const climbName =
+      //   this.climbName === ''
+      //     ? (Math.random() + 1).toString(36).substring(2)
+      //     : this.climbName
+      const climbName = this.climbName === '' ? '' : this.climbName
       const currentRef = ref(storage, 'current/test.json')
       const allRef = ref(storage, 'all/' + climbName + '.json')
 
