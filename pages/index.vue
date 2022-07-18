@@ -1,10 +1,22 @@
 <template>
   <div class="index">
-    <div class="fixed top-0 p-2">
+    <!-- <div class="fixed top-0 p-2">
       <div>
         <label for="">Name of Climb</label>
         <input v-model="climbName" type="string" />
       </div>
+    </div> -->
+    <!-- overlay -->
+    <div v-if="showModal" class="overlay" @click="showModal = false"></div>
+
+    <!-- modal -->
+    <div v-if="showModal" class="modal">
+      <button class="close" @click="showModal = false">x</button>
+      <div>
+        <label for="">Name of Climb</label>
+        <input v-model="climbName" type="string" />
+      </div>
+      <button type="button" @click="search">🔍</button>
     </div>
     <svg
       width="100%"
@@ -44,7 +56,7 @@
       />
 
       <text
-        x="270"
+        x="216"
         y="1605"
         font-size="80"
         dominant-baseline="middle"
@@ -55,7 +67,7 @@
       </text>
 
       <text
-        x="540"
+        x="432"
         y="1605"
         font-size="80"
         dominant-baseline="middle"
@@ -66,7 +78,7 @@
       </text>
 
       <text
-        x="810"
+        x="648"
         y="1605"
         font-size="80"
         dominant-baseline="middle"
@@ -74,6 +86,17 @@
         @click="lightUp"
       >
         💡
+      </text>
+
+      <text
+        x="864"
+        y="1605"
+        font-size="80"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        @click="showModal = true"
+      >
+        🔍
       </text>
     </svg>
 
@@ -137,7 +160,8 @@
 <script>
 import { ref, uploadBytes } from 'firebase/storage'
 
-import { storage } from '@/services/firebase'
+import { storage, db } from '@/services/firebase'
+console.log()
 
 export default {
   components: {
@@ -145,6 +169,7 @@ export default {
   },
   data() {
     return {
+      showModal: false,
       ledPos: [],
       data: [...Array(11 * 15).keys()],
       xSize: 96.5,
@@ -482,6 +507,21 @@ export default {
   },
   computed: {},
   methods: {
+    search() {
+      console.log('searching.....', this.climbName)
+      // Create a reference to the cities collection
+      const climbsRef = db.collection('tension-climbs')
+
+      // Create a query against the collection
+      climbsRef
+        .where('name', '==', 'Jumping Giraffe')
+        .get()
+        .then(snapshot => {
+          snapshot.forEach(doc => {
+            console.log(doc.id, '=>', doc.data())
+          })
+        })
+    },
     x(i, n = null) {
       const { xSize, xOffset } = this
       return (i % 11) * xSize + xOffset // 3.47 is the width of each line
@@ -520,6 +560,7 @@ export default {
 
         this.selectedHolds[this.LEDIndex[key] - 1] = this.color
         this.selectedHolds = { ...this.selectedHolds }
+        console.log(this.colorData, this.selectedHolds, 'key,', i, key)
       } else {
         delete this.colorData[key]
         this.colorData = { ...this.colorData }
@@ -649,5 +690,30 @@ export default {
 
 input {
   @apply border-2;
+}
+
+.overlay {
+  position: fixed;
+  z-index: 9998;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal {
+  position: relative;
+  width: 300px;
+  z-index: 9999;
+  margin: 0 auto;
+  padding: 20px 30px;
+  background-color: #fff;
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 </style>

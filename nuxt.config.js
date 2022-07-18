@@ -1,5 +1,5 @@
-const title = 'title' || process.env.npm_package_name
-const desc = 'desc' || process.env.npm_package_description
+const title = 'losey tension-board' || process.env.npm_package_name
+const desc = 'losey homewall' || process.env.npm_package_description
 
 export default {
   /*
