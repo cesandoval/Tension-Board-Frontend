@@ -161,6 +161,8 @@
 import { ref, uploadBytes } from 'firebase/storage'
 
 import { storage, db } from '@/services/firebase'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+
 console.log()
 
 export default {
@@ -510,17 +512,27 @@ export default {
     search() {
       console.log('searching.....', this.climbName)
       // Create a reference to the cities collection
-      const climbsRef = db.collection('tension-climbs')
+      const climbsRef = collection(db, 'tension-climbs')
+      const q = query(climbsRef, where('name', '==', this.climbName))
+      onSnapshot(q, querySnapshot => {
+        this.colorData = {
+          ...querySnapshot.docs.map(d => d.data().colorData)[0],
+        }
+        this.showModal = false
+        this.climbName = ''
+      })
+      // console.log(q, typeof q, 1241242124)
+      // q.forEach(doc => {
+      //   // doc.data() is never undefined for query doc snapshots
+      //   console.log(doc.id, ' => ', doc.data())
+      // })
 
-      // Create a query against the collection
-      climbsRef
-        .where('name', '==', 'Jumping Giraffe')
-        .get()
-        .then(snapshot => {
-          snapshot.forEach(doc => {
-            console.log(doc.id, '=>', doc.data())
-          })
-        })
+      // const dbRef = ref(db, `users/{userUid}`)
+      // update(dbRef, {displayName: "Firebase9_IsCool"}).then(() => {
+      //   console.log("Data updated");
+      // }).catch((e) => {
+      //   console.log(e);
+      // })
     },
     x(i, n = null) {
       const { xSize, xOffset } = this
