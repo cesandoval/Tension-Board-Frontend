@@ -515,11 +515,22 @@ export default {
       const climbsRef = collection(db, 'tension-climbs')
       const q = query(climbsRef, where('name', '==', this.climbName))
       onSnapshot(q, querySnapshot => {
-        this.colorData = {
-          ...querySnapshot.docs.map(d => d.data().colorData)[0],
+        if (
+          querySnapshot.docs.length > 0 &&
+          querySnapshot.docs[0].data().colorData !== undefined
+        ) {
+          this.colorData = {
+            ...querySnapshot.docs.map(d => d.data().colorData)[0],
+          }
+          this.selectedHolds = {}
+          for (const [key, color] of Object.entries(this.colorData)) {
+            this.selectedHolds[this.LEDIndex[key] - 1] = color
+          }
+
+          this.selectedHolds = { ...this.selectedHolds }
+          this.showModal = false
+          this.climbName = ''
         }
-        this.showModal = false
-        this.climbName = ''
       })
       // console.log(q, typeof q, 1241242124)
       // q.forEach(doc => {
@@ -572,7 +583,6 @@ export default {
 
         this.selectedHolds[this.LEDIndex[key] - 1] = this.color
         this.selectedHolds = { ...this.selectedHolds }
-        console.log(this.colorData, this.selectedHolds, 'key,', i, key)
       } else {
         delete this.colorData[key]
         this.colorData = { ...this.colorData }
