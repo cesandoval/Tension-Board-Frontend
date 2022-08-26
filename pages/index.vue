@@ -513,12 +513,13 @@ export default {
       console.log('searching.....', this.climbName)
       // Create a reference to the cities collection
       const climbsRef = collection(db, 'tension-climbs')
-      const q = query(climbsRef, where('name', '==', this.climbName))
+      const q = query(climbsRef, where('name', '==', this.climbName.trim()))
       onSnapshot(q, querySnapshot => {
         if (
           querySnapshot.docs.length > 0 &&
           querySnapshot.docs[0].data().colorData !== undefined
         ) {
+          console.log(querySnapshot.docs[0].data())
           this.colorData = {
             ...querySnapshot.docs.map(d => d.data().colorData)[0],
           }
