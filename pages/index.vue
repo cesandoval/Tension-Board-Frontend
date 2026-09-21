@@ -11,13 +11,28 @@
 
     <!-- modal -->
     <div v-if="showModal" class="modal">
-      <button class="close" @click="showModal = false">x</button>
-      <div>
-        <label for="">Name of Climb</label>
-        <input v-model="climbName" type="string" />
-      </div>
-      <button type="button" @click="search">🔍</button>
+      <button
+        class="close"
+        type="button"
+        aria-label="Close search"
+        @click="showModal = false"
+      >
+        x
+      </button>
+      <form @submit.prevent="search">
+        <label for="climb-name">Name of Climb</label>
+        <input
+          id="climb-name"
+          ref="climbInput"
+          v-model="climbName"
+          type="text"
+          @keydown.esc="showModal = false"
+        />
+        <button type="submit" :disabled="searching">🔍</button>
+      </form>
     </div>
+
+    <Notify :key="notifyKey" :msg="notifyMsg" />
     <svg
       width="100%"
       height="100%"
@@ -56,47 +71,22 @@
       />
 
       <text
-        x="216"
+        v-for="(tool, n) in tools"
+        :key="tool.label"
+        :x="((n + 1) * 1080) / (tools.length + 1)"
         y="1605"
+        class="tool"
         font-size="80"
         dominant-baseline="middle"
         text-anchor="middle"
-        @click="clearAll"
+        role="button"
+        tabindex="0"
+        :aria-label="tool.label"
+        @click="tool.action()"
+        @keydown.enter.prevent="tool.action()"
+        @keydown.space.prevent="tool.action()"
       >
-        🗑️
-      </text>
-
-      <text
-        x="432"
-        y="1605"
-        font-size="80"
-        dominant-baseline="middle"
-        text-anchor="middle"
-        @click="flip"
-      >
-        🔁
-      </text>
-
-      <text
-        x="648"
-        y="1605"
-        font-size="80"
-        dominant-baseline="middle"
-        text-anchor="middle"
-        @click="lightUp"
-      >
-        💡
-      </text>
-
-      <text
-        x="864"
-        y="1605"
-        font-size="80"
-        dominant-baseline="middle"
-        text-anchor="middle"
-        @click="showModal = true"
-      >
-        🔍
+        {{ tool.emoji }}
       </text>
     </svg>
 
@@ -160,18 +150,36 @@
 <script>
 import { ref, uploadBytes } from 'firebase/storage'
 
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { storage, db } from '@/services/firebase'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import Notify from '@/components/Notify.vue'
 
-console.log()
+// Clicking a hold advances it through these, then clears it.
+const COLOR_CYCLE = ['magenta', 'green', 'blue', 'red']
+
+// Climb names become Cloud Storage object paths, so strip anything that would
+// create a nested prefix or break the download URL.
+function safeName(name) {
+  return name
+    .trim()
+    .replace(/[\\/?#[\]*]/g, '-')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+/, '')
+    .slice(0, 120)
+    .trim()
+}
 
 export default {
   components: {
-    //
+    Notify,
   },
   data() {
     return {
       showModal: false,
+      searching: false,
+      uploading: false,
+      notifyMsg: '',
+      notifyKey: 0,
       ledPos: [],
       data: [...Array(11 * 15).keys()],
       xSize: 96.5,
@@ -179,11 +187,9 @@ export default {
       xOffset: 95,
       yOffset: 44,
       climbName: '',
-      color: 'magenta',
       colorData: {},
       selectedHolds: {},
       oldColorData: {},
-      oldSelectedHolds: {},
       setC: [
         [2.5, 0.5],
         [4.5, 0.5],
@@ -507,50 +513,77 @@ export default {
       },
     }
   },
-  computed: {},
-  methods: {
-    search() {
-      console.log('searching.....', this.climbName)
-      // Create a reference to the cities collection
-      const climbsRef = collection(db, 'tension-climbs')
-      const q = query(climbsRef, where('name', '==', this.climbName.trim()))
-      onSnapshot(q, querySnapshot => {
-        if (
-          querySnapshot.docs.length > 0 &&
-          querySnapshot.docs[0].data().colorData !== undefined
-        ) {
-          console.log(querySnapshot.docs[0].data())
-          this.colorData = {
-            ...querySnapshot.docs.map(d => d.data().colorData)[0],
-          }
-          this.selectedHolds = {}
-          for (const [key, color] of Object.entries(this.colorData)) {
-            this.selectedHolds[this.LEDIndex[key] - 1] = color
-          }
-
-          this.selectedHolds = { ...this.selectedHolds }
-          this.showModal = false
-          this.climbName = ''
-        }
-      })
-      // console.log(q, typeof q, 1241242124)
-      // q.forEach(doc => {
-      //   // doc.data() is never undefined for query doc snapshots
-      //   console.log(doc.id, ' => ', doc.data())
-      // })
-
-      // const dbRef = ref(db, `users/{userUid}`)
-      // update(dbRef, {displayName: "Firebase9_IsCool"}).then(() => {
-      //   console.log("Data updated");
-      // }).catch((e) => {
-      //   console.log(e);
-      // })
+  computed: {
+    tools() {
+      return [
+        { emoji: '🗑️', label: 'Clear all holds', action: this.clearAll },
+        { emoji: '🔁', label: 'Mirror the climb', action: this.flip },
+        { emoji: '↩️', label: 'Undo to last sent', action: this.undo },
+        { emoji: '💡', label: 'Send to board', action: this.lightUp },
+        { emoji: '🔍', label: 'Search climbs', action: this.openSearch },
+      ]
     },
-    x(i, n = null) {
+  },
+  watch: {
+    showModal(open) {
+      if (!open) return
+      this.$nextTick(() => {
+        const input = this.$refs.climbInput
+        if (input) input.focus()
+      })
+    },
+  },
+  methods: {
+    notify(msg) {
+      this.notifyMsg = msg
+      // Remount Notify so repeating the same message re-triggers it.
+      this.notifyKey += 1
+    },
+    openSearch() {
+      this.showModal = true
+    },
+    async search() {
+      const name = this.climbName.trim()
+      if (!name) {
+        this.notify('Type a climb name to search for')
+        return
+      }
+
+      this.searching = true
+      try {
+        const climbsRef = collection(db, 'tension-climbs')
+        const snapshot = await getDocs(
+          query(climbsRef, where('name', '==', name))
+        )
+
+        const match = snapshot.docs.find(d => d.data().colorData !== undefined)
+        if (!match) {
+          this.notify(`No climb found named *${name}*`)
+          return
+        }
+        if (snapshot.docs.length > 1) {
+          console.warn(
+            `${snapshot.docs.length} climbs named "${name}" - showing the first`
+          )
+        }
+
+        // Keep climbName so a following lightUp() re-archives under this name.
+        this.colorData = { ...match.data().colorData }
+        this.syncSelectedHolds()
+        this.showModal = false
+        this.notify(`Loaded *${name}*`)
+      } catch (err) {
+        console.error('Climb search failed', err)
+        this.notify('Search failed - could not reach the climb database')
+      } finally {
+        this.searching = false
+      }
+    },
+    x(i) {
       const { xSize, xOffset } = this
       return (i % 11) * xSize + xOffset // 3.47 is the width of each line
     },
-    y(i, n = null) {
+    y(i) {
       const { ySize, yOffset } = this
       return Math.floor(i / 11) * ySize + yOffset
     },
@@ -562,116 +595,90 @@ export default {
       const { ySize, yOffset } = this
       return d[1] * ySize + yOffset
     },
-    yCoord() {
-      const { ySize } = this
-
-      return 1.9 + ySize // each line is 3vh
+    // selectedHolds is always derived from colorData, never edited alongside
+    // it - that is what used to let the two objects drift apart.
+    syncSelectedHolds() {
+      const next = {}
+      for (const [key, color] of Object.entries(this.colorData)) {
+        const led = this.LEDIndex[key]
+        if (led === undefined) {
+          console.warn(`Hold "${key}" has no LED mapping - skipping`)
+          continue
+        }
+        next[led - 1] = color
+      }
+      this.selectedHolds = next
     },
     addHold(i, key = null) {
       if (key == null) key = i
 
-      // console.log(key in this.colorData, this.colorData)
+      const next = { ...this.colorData }
+      const color = COLOR_CYCLE[COLOR_CYCLE.indexOf(next[key]) + 1]
 
-      if (!(key in this.colorData)) this.color = 'magenta'
-      else if (this.colorData[key] === 'magenta') this.color = 'green'
-      else if (this.colorData[key] === 'green') this.color = 'blue'
-      else if (this.colorData[key] === 'blue') this.color = 'red'
-      else if (this.colorData[key] === 'red') this.color = 'green'
+      // Past the end of the cycle the hold clears.
+      if (color === undefined) delete next[key]
+      else next[key] = color
 
-      if (!(this.colorData[key] === 'red')) {
-        this.colorData[key] = this.color
-        this.colorData = { ...this.colorData }
-
-        this.selectedHolds[this.LEDIndex[key] - 1] = this.color
-        this.selectedHolds = { ...this.selectedHolds }
-      } else {
-        delete this.colorData[key]
-        this.colorData = { ...this.colorData }
-
-        delete this.selectedHolds[this.LEDIndex[key] - 1]
-        this.selectedHolds = { ...this.selectedHolds }
-      }
+      this.colorData = next
+      this.syncSelectedHolds()
     },
-    // addHold(i, key = null) {
-    //   if (key == null) key = i
-
-    //   // console.log(key in this.colorData, this.colorData)
-    //   if (!(key in this.colorData) || this.colorData[key] !== this.color) {
-    //     this.colorData[key] = this.color
-    //     this.colorData = { ...this.colorData }
-
-    //     this.selectedHolds[this.LEDIndex[key] - 1] = this.color
-    //     this.selectedHolds = { ...this.selectedHolds }
-    //   } else if (this.colorData[key] === this.color) {
-    //     delete this.colorData[key]
-    //     this.colorData = { ...this.colorData }
-
-    //     delete this.selectedHolds[this.LEDIndex[key] - 1]
-    //     this.selectedHolds = { ...this.selectedHolds }
-    //   }
-    // },
+    // Reflect a hold across the centre column (column 5 of 0..10).
+    mirrorKey(key) {
+      const str = String(key)
+      if (str.includes(',')) {
+        const [rawCol, row] = str.split(',')
+        const col = Number.parseFloat(rawCol) - 1
+        return col - (col % 11) + (10 - (col % 11)) + 1 + ',' + row
+      }
+      const i = Number.parseInt(str, 10)
+      return String(i - (i % 11) + (10 - (i % 11)))
+    },
     flip() {
-      console.log(this.colorData)
+      // Build a fresh map. Mutating colorData in place made the result depend
+      // on iteration order and left symmetric pairs unflipped.
+      const flipped = {}
       for (const [key, color] of Object.entries(this.colorData)) {
-        if (key.includes(',')) {
-          const newKey = Number.parseFloat(key.split(',')[0]) - 1
-          const newY = key.split(',')[1]
-
-          let mirroredKey =
-            Number.parseFloat(newKey) - (newKey % 11) + (10 - (newKey % 11)) + 1
-          mirroredKey = mirroredKey + ',' + newY
-          this.checkMirror(key, mirroredKey, color)
-        } else {
-          const mirroredKey = parseInt(key) - (key % 11) + (10 - (key % 11))
-          this.checkMirror(key, mirroredKey, color)
-        }
+        flipped[this.mirrorKey(key)] = color
       }
-    },
-    checkMirror(key, newKey, color) {
-      if (!(newKey in this.colorData)) {
-        delete this.colorData[key]
-        delete this.selectedHolds[this.LEDIndex[key] - 1]
-        this.updateObjects(newKey, color)
-      }
-    },
-    updateObjects(key, color) {
-      this.colorData[key] = color
-      this.colorData = { ...this.colorData }
-
-      this.selectedHolds[this.LEDIndex[key] - 1] = color
-      this.selectedHolds = { ...this.selectedHolds }
+      this.colorData = flipped
+      this.syncSelectedHolds()
     },
     clearAll() {
       this.colorData = {}
       this.selectedHolds = {}
     },
-    lightUp() {
-      // const climbName =
-      //   this.climbName === ''
-      //     ? (Math.random() + 1).toString(36).substring(2)
-      //     : this.climbName
-      const climbName = this.climbName === '' ? '' : this.climbName
-      const currentRef = ref(storage, 'current/test.json')
-      const allRef = ref(storage, 'all/' + climbName + '.json')
+    async lightUp() {
+      if (this.uploading) return
 
-      const jsonse = JSON.stringify(this.selectedHolds)
-      const file = new Blob([jsonse], { type: 'application/json' })
-
-      const d = new Date()
-
-      // 'file' comes from the Blob or File API
-      uploadBytes(currentRef, file).then(snapshot => {
-        console.log('Uploaded a json at:' + d.getTime())
-        uploadBytes(allRef, file).then(snapshot => {
-          console.log('Uploaded a json to board at:' + d.getTime())
-          this.oldColorData = { ...this.colorData }
-          this.oldSelectedHolds = { ...this.selectedHolds }
-        })
+      const archiveName = safeName(this.climbName)
+      const file = new Blob([JSON.stringify(this.selectedHolds)], {
+        type: 'application/json',
       })
+
+      this.uploading = true
+      try {
+        // The board watches current/test.json, so it always gets the pattern.
+        await uploadBytes(ref(storage, 'current/test.json'), file)
+
+        // Only keep a named copy - an unnamed climb used to overwrite all/.json.
+        if (archiveName) {
+          await uploadBytes(ref(storage, `all/${archiveName}.json`), file)
+        }
+
+        this.oldColorData = { ...this.colorData }
+        this.notify(
+          archiveName ? `Board lit - saved as *${archiveName}*` : 'Board lit'
+        )
+      } catch (err) {
+        console.error('Upload to board failed', err)
+        this.notify('Could not reach the board - nothing was sent')
+      } finally {
+        this.uploading = false
+      }
     },
     undo() {
       this.colorData = { ...this.oldColorData }
-      this.selectedHolds = { ...this.oldSelectedHolds }
+      this.syncSelectedHolds()
     },
   },
 }
@@ -699,6 +706,11 @@ export default {
 .start {
   @apply bg-indigo-400 text-white font-bold py-2 px-6 rounded cursor-pointer my-8;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.tool {
+  cursor: pointer;
+  user-select: none;
 }
 
 .container-controls {
