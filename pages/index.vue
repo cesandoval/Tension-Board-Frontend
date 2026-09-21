@@ -518,7 +518,7 @@ export default {
       return [
         { emoji: '🗑️', label: 'Clear all holds', action: this.clearAll },
         { emoji: '🔁', label: 'Mirror the climb', action: this.flip },
-        { emoji: '↩️', label: 'Undo to last sent', action: this.undo },
+        { emoji: '🔙', label: 'Undo to last sent', action: this.undo },
         { emoji: '💡', label: 'Send to board', action: this.lightUp },
         { emoji: '🔍', label: 'Search climbs', action: this.openSearch },
       ]
