@@ -157,6 +157,9 @@ import Notify from '@/components/Notify.vue'
 // Clicking a hold advances it through these, then clears it.
 const COLOR_CYCLE = ['magenta', 'green', 'blue', 'red']
 
+// How many steps back undo can walk.
+const HISTORY_LIMIT = 100
+
 // Climb names become Cloud Storage object paths, so strip anything that would
 // create a nested prefix or break the download URL.
 function safeName(name) {
@@ -189,7 +192,7 @@ export default {
       climbName: '',
       colorData: {},
       selectedHolds: {},
-      oldColorData: {},
+      history: [],
       setC: [
         [2.5, 0.5],
         [4.5, 0.5],
@@ -518,7 +521,7 @@ export default {
       return [
         { emoji: '🗑️', label: 'Clear all holds', action: this.clearAll },
         { emoji: '🔁', label: 'Mirror the climb', action: this.flip },
-        { emoji: '🔙', label: 'Undo to last sent', action: this.undo },
+        { emoji: '🔙', label: 'Undo last change', action: this.undo },
         { emoji: '💡', label: 'Send to board', action: this.lightUp },
         { emoji: '🔍', label: 'Search climbs', action: this.openSearch },
       ]
@@ -568,6 +571,7 @@ export default {
         }
 
         // Keep climbName so a following lightUp() re-archives under this name.
+        this.pushHistory()
         this.colorData = { ...match.data().colorData }
         this.syncSelectedHolds()
         this.showModal = false
@@ -609,9 +613,18 @@ export default {
       }
       this.selectedHolds = next
     },
+    // Snapshot the board before a change so undo() can step back exactly one
+    // action. colorData holds at most 241 small entries, so whole snapshots are
+    // cheaper than tracking deltas and they restore a cycled hold's previous
+    // colour for free.
+    pushHistory() {
+      this.history.push({ ...this.colorData })
+      if (this.history.length > HISTORY_LIMIT) this.history.shift()
+    },
     addHold(i, key = null) {
       if (key == null) key = i
 
+      this.pushHistory()
       const next = { ...this.colorData }
       const color = COLOR_CYCLE[COLOR_CYCLE.indexOf(next[key]) + 1]
 
@@ -636,6 +649,7 @@ export default {
     flip() {
       // Build a fresh map. Mutating colorData in place made the result depend
       // on iteration order and left symmetric pairs unflipped.
+      this.pushHistory()
       const flipped = {}
       for (const [key, color] of Object.entries(this.colorData)) {
         flipped[this.mirrorKey(key)] = color
@@ -644,6 +658,7 @@ export default {
       this.syncSelectedHolds()
     },
     clearAll() {
+      this.pushHistory()
       this.colorData = {}
       this.selectedHolds = {}
     },
@@ -665,7 +680,6 @@ export default {
           await uploadBytes(ref(storage, `all/${archiveName}.json`), file)
         }
 
-        this.oldColorData = { ...this.colorData }
         this.notify(
           archiveName ? `Board lit - saved as *${archiveName}*` : 'Board lit'
         )
@@ -677,7 +691,11 @@ export default {
       }
     },
     undo() {
-      this.colorData = { ...this.oldColorData }
+      if (!this.history.length) {
+        this.notify('Nothing to undo')
+        return
+      }
+      this.colorData = this.history.pop()
       this.syncSelectedHolds()
     },
   },
