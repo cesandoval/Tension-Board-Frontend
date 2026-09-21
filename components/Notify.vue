@@ -31,7 +31,20 @@ export default {
   },
   computed: {
     mdMsg() {
-      return this.msg.replace(/\*(.*?)\*/g, '<b>$1</b>')
+      // msg can contain user input (climb names), so escape before the *bold*
+      // substitution injects markup of our own.
+      const escaped = this.msg.replace(
+        /[&<>"']/g,
+        c =>
+          ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+          }[c])
+      )
+      return escaped.replace(/\*(.*?)\*/g, '<b>$1</b>')
     },
   },
   watch: {
